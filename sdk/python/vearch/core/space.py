@@ -90,9 +90,7 @@ class Space(object):
                 documents.append(record)
         else:
             return UpsertResult(CodeType.UPSERT_DOC, "data type has error: " + err_msg)
-        logger.info(f"docs:{len(documents)}")
         result =  self.client._upsert(self.database_name, self.name, documents)
-        logger.info(f"success:{result.is_success()}, len:{len(result.document_ids)}")
         return result
 
     def _check_data_type(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing import List, Optional
-
+import json
 import requests
 from requests.adapters import HTTPAdapter
 
@@ -157,7 +157,10 @@ class RestClient(object):
 
         sign = compute_sign_auth(secret=self.token)
         resp = self.s.request(method="POST", url=url, json=req_body, auth=sign)
-        return UpsertResult.parse_upsert_result_from_response(resp)
+        logger.info(f"{json.loads(resp.text)}")
+        result = UpsertResult.parse_upsert_result_from_response(resp)
+        logger.info(f"success:{result.is_success()}, len:{len(result.document_ids)}, msg:{result.msg}, code:{result.code}")
+        return result
 
     def _delete_documents(
         self,

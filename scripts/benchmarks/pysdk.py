@@ -199,7 +199,7 @@ def process_upsert_data(items: tuple):
         param_dict["field_string"] = str(param_dict["field_int"])
         data.append(param_dict)
     rs = vc.upsert(args.db, args.space, data)
-    logger.info(f"code:{rs.code}, total:{rs.total}")
+    logger.info(f"code:{rs.code}, total:{rs.total}, msg:{rs.msg}, docs:{len(rs.document_ids)},get_document_ids:{rs.get_document_ids()}")
     if rs.code != 0:
         logger.info(rs.msg)
     if len(rs.get_document_ids()) != size:
