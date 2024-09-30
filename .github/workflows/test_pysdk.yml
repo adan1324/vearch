@@ -27,6 +27,12 @@ jobs:
       with:
         build-type: github
 
+    - name: Build python sdk
+      run: |
+        cd sdk/python
+        python setup.py bdist_wheel
+        pip install dist/pyvearch*
+
     - name: Test Benchmark Scripts
       run: |
         cd scripts/benchmarks
