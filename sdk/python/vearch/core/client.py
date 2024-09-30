@@ -157,7 +157,7 @@ class RestClient(object):
 
         sign = compute_sign_auth(secret=self.token)
         resp = self.s.request(method="POST", url=url, json=req_body, auth=sign)
-        logger.info(f"request:{json.loads(resp.text)}, url:{url}, auth:{sign}, data:{req_body}")
+        logger.info(f"request:{json.loads(resp.text)}, url:{url}, auth:{sign}")
         result = UpsertResult.parse_upsert_result_from_response(resp)
         logger.info(f"success:{result.is_success()}, len:{len(result.document_ids)}, msg:{result.msg}, code:{result.code}")
         return result
