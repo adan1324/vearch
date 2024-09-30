@@ -203,6 +203,7 @@ def process_upsert_data(items: tuple):
     if rs.code != 0:
         logger.info(rs.msg)
     if len(rs.get_document_ids()) != size:
+        logger.info(rs.msg)
         logger.info(rs.get_document_ids())
     assert len(rs.get_document_ids()) == size
     
