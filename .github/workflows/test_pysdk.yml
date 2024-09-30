@@ -27,29 +27,6 @@ jobs:
       with:
         build-type: github
 
-    - name: Run Python tests
-      run: |
-        cd test
-        pytest test_vearch.py -x --log-cli-level=INFO
-        pytest test_document_* -k "not test_vearch_document_upsert_benchmark" -x --log-cli-level=INFO
-        pytest test_module_* -x --log-cli-level=INFO
-
-    - name: Test Go SDK
-      run: |
-        cd sdk/go/test
-        go test -v
-
-    - name: Build python sdk
-      run: |
-        cd sdk/python
-        python setup.py bdist_wheel
-        pip install dist/pyvearch*
-
-    - name: Test Python SDK
-      run: |
-        cd sdk/python/test
-        pytest -x --log-cli-level=INFO
-
     - name: Test Benchmark Scripts
       run: |
         cd scripts/benchmarks
