@@ -51,6 +51,11 @@ def str2MetricType(metric_type: str):
         return MetricType.Inner_product
 
 
+def init_process(global_vc):
+    global vc
+    vc = global_vc
+    
+
 def parseParams(args: argparse.Namespace):
     if args.index_type == "FLAT":
         return FlatIndex(
@@ -193,17 +198,16 @@ def process_upsert_data(items: tuple):
         param_dict["field_double"] = float(param_dict["field_int"])
         param_dict["field_string"] = str(param_dict["field_int"])
         data.append(param_dict)
-
     rs = vc.upsert(args.db, args.space, data)
     if rs.code != 0:
         logger.error(rs.msg)
     if len(rs.get_document_ids()) != size:
         logger.debug(rs.get_document_ids())
     assert len(rs.get_document_ids()) == size
-
-
+    
 def upsert(args: argparse.Namespace, xb: np.ndarray = None):
-    pool = Pool(args.pool_size)
+    global vc
+    pool = Pool(args.pool_size, initializer=init_process, initargs=(vc,))
     total_data = []
     total_batch = int(args.nb / args.batch_size)
 
@@ -242,8 +246,8 @@ def upsert(args: argparse.Namespace, xb: np.ndarray = None):
     pool.join()
     end = time.time()
 
-    _, _, space = vc.is_space_exist(args.db, args.space)
-    total = json.loads(space)["doc_num"]
+    from restful import get_space
+    total = get_space(args).json()["data"]["doc_num"]
     logger.info(
         "nb: %d, batch size:%d, upsert cost: %.4f seconds, QPS: %.4f, pool size: %d"
         % (
@@ -308,7 +312,7 @@ def process_query_data(items: tuple):
 
 
 def query(args: argparse.Namespace):
-    pool = Pool(args.pool_size)
+    pool = Pool(args.pool_size, initializer=init_process, initargs=(vc,))
     total_data = []
     # There may be some left, but won't deal with it
     total_batch = int(args.nq / args.batch_size)
@@ -348,7 +352,7 @@ def process_delete_data(items: tuple):
 
 
 def delete(args: argparse.Namespace):
-    pool = Pool(args.pool_size)
+    pool = Pool(args.pool_size, initializer=init_process, initargs=(vc,))
     total_data = []
     # There may be some left, but won't deal with it
     total_batch = int(args.nq / args.batch_size)
@@ -400,7 +404,7 @@ def process_search_data(items: tuple):
 
 
 def search(args: argparse.Namespace, xq: np.ndarray, gt: np.ndarray):
-    pool = Pool(args.pool_size)
+    pool = Pool(args.pool_size, initializer=init_process, initargs=(vc,))
     total_data = []
     total_batch = int(args.nq / args.batch_size)
     for i in range(total_batch):
