@@ -78,41 +78,41 @@ class RestClient(object):
         url_params = {"database_name": database_name}
         url = self.host + DATABASE_URI % url_params
         sign = compute_sign_auth(secret=self.token)
-        resp = self.s.request(method="POST", url=url, auth=sign)
+        resp = requests.request(method="POST", url=url, auth=sign)
         return get_result(resp)
 
     def _drop_db(self, database_name: str) -> Result:
         url_params = {"database_name": database_name}
         url = self.host + (DATABASE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = self.s.request(method="DELETE", url=url, auth=sign)
+        resp = requests.request(method="DELETE", url=url, auth=sign)
         return get_result(resp)
 
     def _list_db(self) -> Result:
         url = self.host + LIST_DATABASE_URI
         sign = compute_sign_auth(secret=self.token)
-        resp = self.s.request(method="GET", url=url, auth=sign)
+        resp = requests.request(method="GET", url=url, auth=sign)
         return get_result(resp)
 
     def _get_db_detail(self, database_name: str) -> Result:
         url_params = {"database_name": database_name}
         url = self.host + (DATABASE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = self.s.request(method="GET", url=url, auth=sign)
+        resp = requests.request(method="GET", url=url, auth=sign)
         return get_result(resp)
 
     def _list_space(self, database_name: str) -> Result:
         url_params = {"database_name": database_name}
         url = self.host + (LIST_SPACE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = self.s.request(method="GET", url=url, auth=sign)
+        resp = requests.request(method="GET", url=url, auth=sign)
         return get_result(resp)
 
     def _create_space(self, database_name: str, space_schema: SpaceSchema) -> Result:
         url_params = {"database_name": database_name}
         url = self.host + LIST_SPACE_URI % url_params
         sign = compute_sign_auth(secret=self.token)
-        resp = self.s.request(
+        resp = requests.request(
             method="POST", url=url, json=space_schema.dict(), auth=sign
         )
         return get_result(resp)
@@ -121,14 +121,14 @@ class RestClient(object):
         url_params = {"database_name": database_name, "space_name": space_name}
         url = self.host + (SPACE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = self.s.request(method="DELETE", url=url, auth=sign)
+        resp = requests.request(method="DELETE", url=url, auth=sign)
         return get_result(resp)
 
     def _get_space_detail(self, database_name: str, space_name: str) -> Result:
         url_params = {"database_name": database_name, "space_name": space_name}
         url = self.host + (SPACE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = self.s.request(method="GET", url=url, auth=sign)
+        resp = requests.request(method="GET", url=url, auth=sign)
         return get_result(resp)
 
     def _create_index(
@@ -142,7 +142,7 @@ class RestClient(object):
             "space": space_name,
         }
         sign = compute_sign_auth(secret=self.token)
-        resp = self.s.request(method="POST", url=url, json=req_body, auth=sign)
+        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
         return get_result(resp)
 
     def _upsert(
@@ -156,7 +156,7 @@ class RestClient(object):
         }
 
         sign = compute_sign_auth(secret=self.token)
-        resp = self.s.request(method="POST", url=url, json=req_body, auth=sign)
+        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
         logger.info(f"request:{json.loads(resp.text)}, url:{url}, auth:{sign}")
         result = UpsertResult.parse_upsert_result_from_response(resp)
         logger.info(f"success:{result.is_success()}, len:{len(result.document_ids)}, msg:{result.msg}, code:{result.code}")
@@ -182,7 +182,7 @@ class RestClient(object):
             req_body["filters"] = filter.dict()
 
         sign = compute_sign_auth()
-        resp = self.s.request(method="POST", url=url, json=req_body, auth=sign)
+        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
         return DeleteResult.parse_delete_result_from_response(resp)
 
     def _query_documents(
@@ -227,7 +227,7 @@ class RestClient(object):
         if filter:
             req_body["filters"] = filter.dict()
         sign = compute_sign_auth(secret=self.token)
-        resp = self.s.request(method="POST", url=url, json=req_body, auth=sign)
+        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
         return SearchResult.parse_search_result_from_response(resp)
 
     def _search_documents(
@@ -301,5 +301,5 @@ class RestClient(object):
             req_body["filters"] = filter.dict()
 
         sign = compute_sign_auth(secret=self.token)
-        resp = self.s.request(method="POST", url=url, json=req_body, auth=sign)
+        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
         return SearchResult.parse_search_result_from_response(resp)
