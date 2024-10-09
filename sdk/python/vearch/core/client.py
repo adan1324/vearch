@@ -35,7 +35,6 @@ logger = logging.getLogger("vearch")
 
 
 class RestClient(object):
-    _local = local()
     
     @classmethod
     def from_config(cls, config: Config) -> RestClient:
@@ -67,60 +66,47 @@ class RestClient(object):
         self.timeout = config.timeout
         self.max_connections = config.max_connections
         self.max_retries = config.max_retries
-        if hasattr(self._local, 'session'):
-            del self._local.session
 
-    def _get_session(self) -> requests.Session:
-        if not hasattr(self._local, 'session'):
-            logger.info("---------------创建新的session---------------")
-            httpAdapter = HTTPAdapter(
-                pool_maxsize=self.max_connections,
-                max_retries=self.max_retries,
-            )
-            session = requests.Session()
-            session.mount("http://", adapter=httpAdapter)
-            self._local.session = session
-        return self._local.session
     
     def _create_db(self, database_name: str) -> Result:
         url_params = {"database_name": database_name}
         url = self.host + DATABASE_URI % url_params
         sign = compute_sign_auth(secret=self.token)
-        resp = self._get_session().request(method="POST", url=url, auth=sign)
+        resp = requests.request(method="POST", url=url, auth=sign)
         return get_result(resp)
 
     def _drop_db(self, database_name: str) -> Result:
         url_params = {"database_name": database_name}
         url = self.host + (DATABASE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = self._get_session().request(method="DELETE", url=url, auth=sign)
+        resp = requests.request(method="DELETE", url=url, auth=sign)
         return get_result(resp)
 
     def _list_db(self) -> Result:
         url = self.host + LIST_DATABASE_URI
         sign = compute_sign_auth(secret=self.token)
-        resp = self._get_session().request(method="GET", url=url, auth=sign)
+        resp = requests.request(method="GET", url=url, auth=sign)
         return get_result(resp)
 
     def _get_db_detail(self, database_name: str) -> Result:
         url_params = {"database_name": database_name}
         url = self.host + (DATABASE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = self._get_session().request(method="GET", url=url, auth=sign)
+        resp = requests.request(method="GET", url=url, auth=sign)
         return get_result(resp)
 
     def _list_space(self, database_name: str) -> Result:
         url_params = {"database_name": database_name}
         url = self.host + (LIST_SPACE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = self._get_session().request(method="GET", url=url, auth=sign)
+        resp = requests.request(method="GET", url=url, auth=sign)
         return get_result(resp)
 
     def _create_space(self, database_name: str, space_schema: SpaceSchema) -> Result:
         url_params = {"database_name": database_name}
         url = self.host + LIST_SPACE_URI % url_params
         sign = compute_sign_auth(secret=self.token)
-        resp = self._get_session().request(
+        resp = requests.request(
             method="POST", url=url, json=space_schema.dict(), auth=sign
         )
         return get_result(resp)
@@ -129,14 +115,14 @@ class RestClient(object):
         url_params = {"database_name": database_name, "space_name": space_name}
         url = self.host + (SPACE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = self._get_session().request(method="DELETE", url=url, auth=sign)
+        resp = requests.request(method="DELETE", url=url, auth=sign)
         return get_result(resp)
 
     def _get_space_detail(self, database_name: str, space_name: str) -> Result:
         url_params = {"database_name": database_name, "space_name": space_name}
         url = self.host + (SPACE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = self._get_session().request(method="GET", url=url, auth=sign)
+        resp = requests.request(method="GET", url=url, auth=sign)
         return get_result(resp)
 
     def _create_index(
@@ -150,7 +136,7 @@ class RestClient(object):
             "space": space_name,
         }
         sign = compute_sign_auth(secret=self.token)
-        resp = self._get_session().request(method="POST", url=url, json=req_body, auth=sign)
+        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
         return get_result(resp)
 
     def _upsert(
@@ -164,7 +150,7 @@ class RestClient(object):
         }
 
         sign = compute_sign_auth(secret=self.token)
-        resp = self._get_session().request(method="POST", url=url, json=req_body, auth=sign)
+        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
         logger.info(f"request:{json.loads(resp.text)}, url:{url}, auth:{sign}")
         result = UpsertResult.parse_upsert_result_from_response(resp)
         logger.info(f"success:{result.is_success()}, len:{len(result.document_ids)}, msg:{result.msg}, code:{result.code}")
@@ -190,7 +176,7 @@ class RestClient(object):
             req_body["filters"] = filter.dict()
 
         sign = compute_sign_auth()
-        resp = self._get_session().request(method="POST", url=url, json=req_body, auth=sign)
+        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
         return DeleteResult.parse_delete_result_from_response(resp)
 
     def _query_documents(
@@ -235,7 +221,7 @@ class RestClient(object):
         if filter:
             req_body["filters"] = filter.dict()
         sign = compute_sign_auth(secret=self.token)
-        resp = self._get_session().request(method="POST", url=url, json=req_body, auth=sign)
+        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
         return SearchResult.parse_search_result_from_response(resp)
 
     def _search_documents(
@@ -309,5 +295,5 @@ class RestClient(object):
             req_body["filters"] = filter.dict()
 
         sign = compute_sign_auth(secret=self.token)
-        resp = self._get_session().request(method="POST", url=url, json=req_body, auth=sign)
+        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
         return SearchResult.parse_search_result_from_response(resp)
