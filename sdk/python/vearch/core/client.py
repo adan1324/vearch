@@ -52,13 +52,7 @@ class RestClient(object):
         token: str = DEFAULT_TOKEN,
         timeout: int = DEFAULT_TIMEOUT,
     ):
-        httpAdapter = HTTPAdapter(
-            pool_maxsize=max_connections,
-            max_retries=max_retries,
-        )
-        s = requests.Session()
-        s.mount("http://", adapter=httpAdapter)
-        self.s = s
+        self.s = None
         self.host = host
         self.token = token
         self.timeout = timeout
@@ -74,66 +68,85 @@ class RestClient(object):
         self.token = config.token
         self.timeout = config.timeout
 
+    def set_default_config(self):
+        if self.s is None:
+            httpAdapter = HTTPAdapter(
+                pool_maxsize=DEFAULT_MAX_CONNECTIONS,
+                max_retries=DEFAULT_RETRIES,
+            )
+            s = requests.Session()
+            s.mount("http://", adapter=httpAdapter)
+            self.s = s
+        
     def _create_db(self, database_name: str) -> Result:
+        self.set_default_config()
         url_params = {"database_name": database_name}
         url = self.host + DATABASE_URI % url_params
         sign = compute_sign_auth(secret=self.token)
-        resp = requests.request(method="POST", url=url, auth=sign)
+        resp = self.s.request(method="POST", url=url, auth=sign)
         return get_result(resp)
 
     def _drop_db(self, database_name: str) -> Result:
+        self.set_default_config()
         url_params = {"database_name": database_name}
         url = self.host + (DATABASE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = requests.request(method="DELETE", url=url, auth=sign)
+        resp = self.s.request(method="DELETE", url=url, auth=sign)
         return get_result(resp)
 
     def _list_db(self) -> Result:
+        self.set_default_config()
         url = self.host + LIST_DATABASE_URI
         sign = compute_sign_auth(secret=self.token)
-        resp = requests.request(method="GET", url=url, auth=sign)
+        resp = self.s.request(method="GET", url=url, auth=sign)
         return get_result(resp)
 
     def _get_db_detail(self, database_name: str) -> Result:
+        self.set_default_config()
         url_params = {"database_name": database_name}
         url = self.host + (DATABASE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = requests.request(method="GET", url=url, auth=sign)
+        resp = self.s.request(method="GET", url=url, auth=sign)
         return get_result(resp)
 
     def _list_space(self, database_name: str) -> Result:
+        self.set_default_config()
         url_params = {"database_name": database_name}
         url = self.host + (LIST_SPACE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = requests.request(method="GET", url=url, auth=sign)
+        resp = self.s.request(method="GET", url=url, auth=sign)
         return get_result(resp)
 
     def _create_space(self, database_name: str, space_schema: SpaceSchema) -> Result:
+        self.set_default_config()
         url_params = {"database_name": database_name}
         url = self.host + LIST_SPACE_URI % url_params
         sign = compute_sign_auth(secret=self.token)
-        resp = requests.request(
+        resp = self.s.request(
             method="POST", url=url, json=space_schema.dict(), auth=sign
         )
         return get_result(resp)
 
     def _drop_space(self, database_name: str, space_name: str) -> Result:
+        self.set_default_config()
         url_params = {"database_name": database_name, "space_name": space_name}
         url = self.host + (SPACE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = requests.request(method="DELETE", url=url, auth=sign)
+        resp = self.s.request(method="DELETE", url=url, auth=sign)
         return get_result(resp)
 
     def _get_space_detail(self, database_name: str, space_name: str) -> Result:
+        self.set_default_config()
         url_params = {"database_name": database_name, "space_name": space_name}
         url = self.host + (SPACE_URI % url_params)
         sign = compute_sign_auth(secret=self.token)
-        resp = requests.request(method="GET", url=url, auth=sign)
+        resp = self.s.request(method="GET", url=url, auth=sign)
         return get_result(resp)
 
     def _create_index(
         self, database_name: str, space_name: str, field: str, index: Index
     ) -> Result:
+        self.set_default_config()
         url = self.host + INDEX_URI
         req_body = {
             "field": field,
@@ -142,12 +155,13 @@ class RestClient(object):
             "space": space_name,
         }
         sign = compute_sign_auth(secret=self.token)
-        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
+        resp = self.s.request(method="POST", url=url, json=req_body, auth=sign)
         return get_result(resp)
 
     def _upsert(
         self, database_name: str, space_name: str, documents: List
     ) -> UpsertResult:
+        self.set_default_config()
         url = self.host + UPSERT_DOC_URI
         req_body = {
             "db_name": database_name,
@@ -156,7 +170,7 @@ class RestClient(object):
         }
 
         sign = compute_sign_auth(secret=self.token)
-        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
+        resp = self.s.request(method="POST", url=url, json=req_body, auth=sign)
         logger.info(f"request:{json.loads(resp.text)}, url:{url}, auth:{sign}")
         result = UpsertResult.parse_upsert_result_from_response(resp)
         logger.info(f"success:{result.is_success()}, len:{len(result.document_ids)}, msg:{result.msg}, code:{result.code}")
@@ -170,6 +184,7 @@ class RestClient(object):
         filter: Optional[Filter] = None,
         limit: int = 50,
     ) -> DeleteResult:
+        self.set_default_config()
         url = self.host + DELETE_DOC_URI
         req_body = {
             "db_name": database_name,
@@ -182,7 +197,7 @@ class RestClient(object):
             req_body["filters"] = filter.dict()
 
         sign = compute_sign_auth()
-        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
+        resp = self.s.request(method="POST", url=url, json=req_body, auth=sign)
         return DeleteResult.parse_delete_result_from_response(resp)
 
     def _query_documents(
@@ -211,6 +226,7 @@ class RestClient(object):
             return SearchResult(
                 CodeType.QUERY_DOC, "document_ids and filter can not both null"
             )
+        self.set_default_config()
         url = self.host + QUERY_DOC_URI
         req_body = {
             "db_name": database_name,
@@ -227,7 +243,7 @@ class RestClient(object):
         if filter:
             req_body["filters"] = filter.dict()
         sign = compute_sign_auth(secret=self.token)
-        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
+        resp = self.s.request(method="POST", url=url, json=req_body, auth=sign)
         return SearchResult.parse_search_result_from_response(resp)
 
     def _search_documents(
@@ -285,7 +301,7 @@ class RestClient(object):
         """
         if len(vector_infos) == 0:
             return SearchResult(CodeType.SEARCH_DOC, "vector_info can not null")
-
+        self.set_default_config()
         url = self.host + SEARCH_DOC_URI
         req_body = {
             "db_name": database_name,
@@ -301,5 +317,5 @@ class RestClient(object):
             req_body["filters"] = filter.dict()
 
         sign = compute_sign_auth(secret=self.token)
-        resp = requests.request(method="POST", url=url, json=req_body, auth=sign)
+        resp = self.s.request(method="POST", url=url, json=req_body, auth=sign)
         return SearchResult.parse_search_result_from_response(resp)
