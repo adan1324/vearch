@@ -72,6 +72,7 @@ class RestClient(object):
 
     def _get_session(self) -> requests.Session:
         if not hasattr(self._local, 'session'):
+            logger.info("---------------创建新的session---------------")
             httpAdapter = HTTPAdapter(
                 pool_maxsize=self.max_connections,
                 max_retries=self.max_retries,
