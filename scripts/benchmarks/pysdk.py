@@ -16,7 +16,7 @@
 # -*- coding: UTF-8 -*-
 
 
-from multiprocessing import Pool
+from concurrent.futures import ThreadPoolExecutor
 import logging
 import time
 import random
@@ -51,11 +51,6 @@ def str2MetricType(metric_type: str):
         return MetricType.Inner_product
 
 
-def init_process(global_vc):
-    global vc
-    vc = global_vc
-    
-
 def parseParams(args: argparse.Namespace):
     if args.index_type == "FLAT":
         return FlatIndex(
@@ -67,14 +62,17 @@ def parseParams(args: argparse.Namespace):
             "field_vector",
             str2MetricType(args.index_params["metric_type"]),
             args.index_params["ncentroids"],
+            int(args.index_params["ncentroids"] * 39),
+            nprobe=args.index_params["nprobe"]
         )
     elif args.index_type == "IVFPQ":
         return IvfPQIndex(
             "field_vector",
-            int(args.index_params["ncentroids"] * 39),
             str2MetricType(args.index_params["metric_type"]),
             args.index_params["ncentroids"],
             args.index_params["nsubvector"],
+            int(args.index_params["ncentroids"] * 39),
+            nprobe=args.index_params["nprobe"]
         )
     elif args.index_type == "HNSW":
         return HNSWIndex(
@@ -146,6 +144,7 @@ def create_db_and_space(args: argparse.Namespace):
     )
 
     ret = vc.create_space(args.db, space_schema)
+    logger.debug(ret.msg)
     assert ret.code == 0
 
 
@@ -156,9 +155,8 @@ def waiting_train_finish(args: argparse.Namespace, timewait: int = 5):
 
     while num < args.partition_num:
         num = 0
-        _, _, space = vc.is_space_exist(args.db, args.space)
-        space = json.loads(space)
-        partitions = space["partitions"]
+        _, space, _ = vc.is_space_exist(args.db, args.space)
+        partitions = space.data["partitions"]
         for p in partitions:
             num += p["index_status"]
         logger.debug("index status: %d" % (num))
@@ -171,9 +169,8 @@ def waiting_index_finish(args: argparse.Namespace, timewait: int = 5):
     num = 0
     while num < args.nb:
         num = 0
-        _, _, space = vc.is_space_exist(args.db, args.space)
-        space = json.loads(space)
-        partitions = space["partitions"]
+        _, space, _ = vc.is_space_exist(args.db, args.space)
+        partitions = space.data["partitions"]
         for p in partitions:
             num += p["index_num"]
         logger.debug("index num: %d" % (num))
@@ -198,18 +195,17 @@ def process_upsert_data(items: tuple):
         param_dict["field_double"] = float(param_dict["field_int"])
         param_dict["field_string"] = str(param_dict["field_int"])
         data.append(param_dict)
+
     rs = vc.upsert(args.db, args.space, data)
-    logger.info(f"code:{rs.code}, total:{rs.total}, msg:{rs.msg}, docs:{len(rs.document_ids)},get_document_ids:{rs.get_document_ids()}")
     if rs.code != 0:
-        logger.info(rs.msg)
+        logger.error(rs.code)
+        logger.error(rs.msg)
     if len(rs.get_document_ids()) != size:
-        logger.info(rs.msg)
-        logger.info(rs.get_document_ids())
+        logger.debug(rs.get_document_ids())
     assert len(rs.get_document_ids()) == size
-    
+
+
 def upsert(args: argparse.Namespace, xb: np.ndarray = None):
-    global vc
-    pool = Pool(args.pool_size, initializer=init_process, initargs=(vc,))
     total_data = []
     total_batch = int(args.nb / args.batch_size)
 
@@ -243,13 +239,12 @@ def upsert(args: argparse.Namespace, xb: np.ndarray = None):
             total_data.append((args, total_batch, remain, None))
 
     start = time.time()
-    results = pool.map(process_upsert_data, total_data)
-    pool.close()
-    pool.join()
+    with ThreadPoolExecutor(max_workers=args.pool_size) as pool:
+        pool.map(process_upsert_data, total_data)
     end = time.time()
 
-    from restful import get_space
-    total = get_space(args).json()["data"]["doc_num"]
+    _, space, _ = vc.is_space_exist(args.db, args.space)
+    total = space.data["doc_num"]
     logger.info(
         "nb: %d, batch size:%d, upsert cost: %.4f seconds, QPS: %.4f, pool size: %d"
         % (
@@ -314,7 +309,6 @@ def process_query_data(items: tuple):
 
 
 def query(args: argparse.Namespace):
-    pool = Pool(args.pool_size, initializer=init_process, initargs=(vc,))
     total_data = []
     # There may be some left, but won't deal with it
     total_batch = int(args.nq / args.batch_size)
@@ -326,9 +320,8 @@ def query(args: argparse.Namespace):
         )
 
     start = time.time()
-    results = pool.map(process_query_data, total_data)
-    pool.close()
-    pool.join()
+    with ThreadPoolExecutor(max_workers=args.pool_size) as pool:
+        pool.map(process_query_data, total_data)
     end = time.time()
 
     logger.info(
@@ -354,7 +347,6 @@ def process_delete_data(items: tuple):
 
 
 def delete(args: argparse.Namespace):
-    pool = Pool(args.pool_size, initializer=init_process, initargs=(vc,))
     total_data = []
     # There may be some left, but won't deal with it
     total_batch = int(args.nq / args.batch_size)
@@ -366,9 +358,8 @@ def delete(args: argparse.Namespace):
         )
 
     start = time.time()
-    results = pool.map(process_delete_data, total_data)
-    pool.close()
-    pool.join()
+    with ThreadPoolExecutor(max_workers=args.pool_size) as pool:
+        pool.map(process_delete_data, total_data)
     end = time.time()
 
     logger.info(
@@ -406,7 +397,7 @@ def process_search_data(items: tuple):
 
 
 def search(args: argparse.Namespace, xq: np.ndarray, gt: np.ndarray):
-    pool = Pool(args.pool_size, initializer=init_process, initargs=(vc,))
+    pool = ThreadPoolExecutor(max_workers=args.pool_size)
     total_data = []
     total_batch = int(args.nq / args.batch_size)
     for i in range(total_batch):
@@ -419,9 +410,8 @@ def search(args: argparse.Namespace, xq: np.ndarray, gt: np.ndarray):
         )
 
     start = time.time()
-    results = pool.map(process_search_data, total_data)
-    pool.close()
-    pool.join()
+    with ThreadPoolExecutor(max_workers=args.pool_size) as pool:
+        results = pool.map(process_search_data, total_data)
     end = time.time()
 
     recall_str = ""
