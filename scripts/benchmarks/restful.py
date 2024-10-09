@@ -160,7 +160,7 @@ def waiting_index_finish(args: argparse.Namespace, timewait: int = 5):
         time.sleep(timewait)
 
 
-def  process_upsert_data(items: tuple):
+def process_upsert_data(items: tuple):
     args, index, size, features = items
     url = args.url + "/document/upsert"
     data = {}
@@ -184,7 +184,6 @@ def  process_upsert_data(items: tuple):
         data["documents"].append(param_dict)
 
     rs = requests.post(url, auth=(args.user, args.password), json=data)
-    logger.info(f"upsert resp:{rs.json()}, url:{url}, auth:{args.user, args.password}")
     if rs.json()["code"] != 0:
         logger.error(rs.json())
     if rs.json()["data"]["total"] != size:

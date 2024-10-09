@@ -1,1 +1,1 @@
-test_host_url = "http://localhost:9001"
+test_host_url = "http://aigc-9n-dev-router.vectorbase.svc.ht10.n.jd.local"

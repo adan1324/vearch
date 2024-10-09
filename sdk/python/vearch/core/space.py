@@ -90,8 +90,8 @@ class Space(object):
                 documents.append(record)
         else:
             return UpsertResult(CodeType.UPSERT_DOC, "data type has error: " + err_msg)
-        result =  self.client._upsert(self.database_name, self.name, documents)
-        return result
+
+        return self.client._upsert(self.database_name, self.name, documents)
 
     def _check_data_type(
         self, data: Union[List, pd.DataFrame]
